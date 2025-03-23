@@ -1,270 +1,354 @@
 /*
- * Drawing Board Server (No Threading)
+ * Echo serveris
  * 
- * Author: Original by Kęstutis Mizara, Modified for Drawing Board
- * Description: Manages a shared drawing board for multiple clients using select()
+ * Author: Kęstutis Mizara
+ * Description: Gauna kliento pranešimą ir išsiunčia atgal
  */
 
- #ifdef _WIN32
- #include <winsock2.h>
- #define socklen_t int
- #else
- #include <sys/socket.h>
- #include <sys/types.h>
- #include <netinet/in.h>
- #include <arpa/inet.h>
- #include <sys/select.h>
- #endif
- 
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
- #include <time.h>
- 
- #define MAX_CLIENTS 10
- #define BUFFER_SIZE 1024
- #define MAX_DRAW_POINTS 1000
- 
- // Structure to represent a drawing point
- typedef struct {
-     int x;
-     int y;
-     int color;
-     int client_id;
- } DrawPoint;
- 
- // Global variables for the drawing state
- DrawPoint drawing_state[MAX_DRAW_POINTS];
- int point_count = 0;
- 
- // Array of client sockets
- int client_sockets[MAX_CLIENTS];
- int client_count = 0;
- 
- // Parse a drawing command from the client
- // Format: "DRAW x y color"
- int parse_draw_command(char *buffer, DrawPoint *point) {
-     char command[10];
-     int result = sscanf(buffer, "%s %d %d %d", command, &point->x, &point->y, &point->color);
-     
-     if (result != 4 || strcmp(command, "DRAW") != 0) {
-         return 0;
-     }
-     
-     return 1;
- }
- 
- // Broadcast a drawing update to all clients
- void broadcast_draw_update(DrawPoint *point, int exclude_socket) {
-     char buffer[BUFFER_SIZE];
-     snprintf(buffer, BUFFER_SIZE, "DRAW %d %d %d %d", point->x, point->y, point->color, point->client_id);
-     
-     for (int i = 0; i < client_count; i++) {
-         if (client_sockets[i] != exclude_socket && client_sockets[i] > 0) {
-             send(client_sockets[i], buffer, strlen(buffer), 0);
-         }
-     }
- }
- 
- // Send the entire drawing state to a new client
- void send_full_state(int socket, int client_id) {
-     char buffer[BUFFER_SIZE];
-     snprintf(buffer, BUFFER_SIZE, "WELCOME %d", client_id);
-     send(socket, buffer, strlen(buffer), 0);
-     
-     for (int i = 0; i < point_count; i++) {
-         snprintf(buffer, BUFFER_SIZE, "DRAW %d %d %d %d", 
-                 drawing_state[i].x, drawing_state[i].y, 
-                 drawing_state[i].color, drawing_state[i].client_id);
-         send(socket, buffer, strlen(buffer), 0);
-         
-         // Small delay to prevent overwhelming client
-         #ifdef _WIN32
-         Sleep(10);
-         #else
-         struct timespec ts;
-         ts.tv_sec = 0;
-         ts.tv_nsec = 10000000; // 10ms
-         nanosleep(&ts, NULL);
-         #endif
-     }
- }
- 
- // Add a client socket to our array
- int add_client(int socket) {
-     int client_id = -1;
-     
-     if (client_count < MAX_CLIENTS) {
-         client_sockets[client_count] = socket;
-         client_id = client_count;
-         client_count++;
-     }
-     
-     return client_id;
- }
- 
- // Remove a client socket from our array
- void remove_client(int socket) {
-     for (int i = 0; i < client_count; i++) {
-         if (client_sockets[i] == socket) {
-             // Shift remaining clients
-             for (int j = i; j < client_count - 1; j++) {
-                 client_sockets[j] = client_sockets[j + 1];
-             }
-             client_count--;
-             break;
-         }
-     }
- }
- 
- int main(int argc, char *argv[]) {
- #ifdef _WIN32
-     WSADATA data;
- #endif
-     unsigned int port;
-     int l_socket; // socket for accepting connections
-     
-     struct sockaddr_in servaddr; // Server address structure
-     
-     if (argc != 2) {
-         printf("USAGE: %s <port>\n", argv[0]);
-         exit(1);
-     }
-     
-     port = atoi(argv[1]);
-     
-     if ((port < 1) || (port > 65535)) {
-         printf("ERROR #1: invalid port specified.\n");
-         exit(1);
-     }
-     
- #ifdef _WIN32
-     WSAStartup(MAKEWORD(2,2),&data);    
- #endif
-     
-     // Create server socket
-     if ((l_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-         fprintf(stderr, "ERROR #2: cannot create listening socket.\n");
-         exit(1);
-     }
-     
-     // Initialize server address structure
-     memset(&servaddr, 0, sizeof(servaddr));
-     servaddr.sin_family = AF_INET;
-     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-     servaddr.sin_port = htons(port);
-     
-     // Bind socket to address
-     if (bind(l_socket, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-         fprintf(stderr, "ERROR #3: bind listening socket.\n");
-         exit(1);
-     }
-     
-     // Listen for connections
-     if (listen(l_socket, 10) < 0) {
-         fprintf(stderr, "ERROR #4: error in listen().\n");
-         exit(1);
-     }
-     
-     printf("Drawing board server started on port %d\n", port);
-     
-     // Initialize socket sets for select()
-     fd_set master_set, read_set;
-     FD_ZERO(&master_set);
-     FD_SET(l_socket, &master_set);
-     int max_socket = l_socket;
-     
-     // Main event loop
-     while (1) {
-         read_set = master_set;
-         
-         if (select(max_socket + 1, &read_set, NULL, NULL, NULL) < 0) {
-             fprintf(stderr, "ERROR: select() failed\n");
-             break;
-         }
-         
-         // Check for new connections
-         if (FD_ISSET(l_socket, &read_set)) {
-             struct sockaddr_in clientaddr;
-             socklen_t clientaddrlen = sizeof(struct sockaddr);
-             
-             int c_socket;
-             if ((c_socket = accept(l_socket, (struct sockaddr*)&clientaddr, &clientaddrlen)) < 0) {
-                 fprintf(stderr, "ERROR #5: error accepting connection.\n");
-                 continue;
-             }
-             
-             printf("New client connected from %s\n", inet_ntoa(clientaddr.sin_addr));
-             
-             // Add to client list
-             int client_id = add_client(c_socket);
-             if (client_id < 0) {
-                 printf("Too many clients, connection refused.\n");
-                 #ifdef _WIN32
-                 closesocket(c_socket);
-                 #else
-                 close(c_socket);
-                 #endif
-                 continue;
-             }
-             
-             // Add to master set
-             FD_SET(c_socket, &master_set);
-             if (c_socket > max_socket) {
-                 max_socket = c_socket;
-             }
-             
-             // Send current drawing state
-             send_full_state(c_socket, client_id);
-         }
-         
-         // Check for data from clients
-         for (int i = 0; i < client_count; i++) {
-             int socket = client_sockets[i];
-             
-             if (FD_ISSET(socket, &read_set)) {
-                 char buffer[BUFFER_SIZE];
-                 memset(buffer, 0, BUFFER_SIZE);
-                 
-                 int bytes_received = recv(socket, buffer, BUFFER_SIZE, 0);
-                 
-                 if (bytes_received <= 0) {
-                     // Client disconnected
-                     printf("Client %d disconnected\n", i);
-                     FD_CLR(socket, &master_set);
-                     #ifdef _WIN32
-                     closesocket(socket);
-                     #else
-                     close(socket);
-                     #endif
-                     remove_client(socket);
-                 } else {
-                     // Process drawing command
-                     DrawPoint new_point;
-                     new_point.client_id = i;
-                     
-                     if (parse_draw_command(buffer, &new_point)) {
-                         // Add to drawing state
-                         if (point_count < MAX_DRAW_POINTS) {
-                             drawing_state[point_count] = new_point;
-                             point_count++;
-                         }
-                         
-                         // Broadcast to other clients
-                         broadcast_draw_update(&new_point, socket);
-                     }
-                 }
-             }
-         }
-     }
-     
-     // Clean up
-     #ifdef _WIN32
-     closesocket(l_socket);
-     WSACleanup();
-     #else
-     close(l_socket);
-     #endif
-     
-     return 0;
- }
+#ifdef _WIN32
+#include <winsock2.h>
+#define socklen_t int
+#else
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
+
+#ifndef _WIN32
+#include <poll.h>
+#include <stddef.h> // Include this header for nfds_t definition
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
+#define MAX_CONNECTED_CLIENTS 10
+#define MAX_USERNAME_LENGTH 15
+
+struct {
+    int x;
+    int y;
+    char symbol;
+} DrawPoint;
+
+char board[20][20];
+
+int draw(int x, int y, char symbol)
+{
+    if (x < 0 || x >= 20 || y < 0 || y >= 20)
+    {
+        return -1;
+    }
+    board[x][y] = symbol;
+    return 0;
+}
+
+
+void sendBoardToClients(int current_client_fd, struct pollfd *pfds) {
+    char* board_string = showBoard();
+    if (board_string != NULL) {
+        for (int i = 1; i <= MAX_CONNECTED_CLIENTS; i++) {
+            if (pfds[i].fd != -1 && pfds[i].fd != current_client_fd) {
+                send(pfds[i].fd, board_string, strlen(board_string), 0);
+            }
+        }
+        free(board_string); // Free the allocated memory
+    }
+}
+
+
+char* showBoard() {
+    int width = 20; // Let's start with a smaller board
+    int height = 20;
+    char *strboard = (char*)malloc((width * (height + 1) + 1) * sizeof(char)); // Allocate memory
+    if (strboard == NULL) {
+        perror("Failed to allocate memory for board string");
+        return NULL;
+    }
+    int index = 0;
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            strboard[index++] = board[i][j] == 0 ? ' ' : board[i][j]; // Use space for empty cells
+        }
+        strboard[index++] = '\n';
+    }
+    strboard[index] = '\0'; // Null-terminate the string
+    return strboard;
+}
+
+void resetBoard () {
+    memset(board, 0, sizeof(board));
+}
+
+void commandParse (char *command, int client_fd, struct pollfd *pfds) {
+    char *token = strtok(command, " ");
+    if (strcmp(token, "/draw") == 0) {
+        token = strtok(NULL, " ");
+        if (token != NULL) {
+            DrawPoint.x = atoi(token);
+            token = strtok(NULL, " ");
+            if (token != NULL) {
+                DrawPoint.y = atoi(token);
+                token = strtok(NULL, " ");
+                if (token != NULL) {
+                    if (strlen(token) == 1) {
+                        DrawPoint.symbol = token[0];
+                        int check = draw(DrawPoint.x, DrawPoint.y, DrawPoint.symbol);
+                        if (check == -1) {
+                            send(client_fd, "Invalid coordinates.\n", 21, 0);
+                        } else {
+                            sendBoardToClients(-1, pfds);
+                            send(client_fd, "Draw successful.\n", 18, 0);
+                        }
+                    } else {
+                        send(client_fd, "Invalid symbol. Please use a single character.\n", 46, 0);
+                    }
+                } else {
+                    send(client_fd, "Usage: /draw <x> <y> <symbol>\n", 33, 0);
+                }
+            } else {
+                send(client_fd, "Usage: /draw <x> <y> <symbol>\n", 33, 0);
+            }
+        } else {
+            send(client_fd, "Usage: /draw <x> <y> <symbol>\n", 33, 0);
+        }
+    } else if (strcmp(token, "/show") == 0) {
+        char* board_string = showBoard();
+        if (board_string != NULL) {
+            send(client_fd, board_string, strlen(board_string), 0);
+            free(board_string);
+        }
+    } else if (strcmp(token, "/reset") == 0) {
+        resetBoard();
+        send(client_fd, "Board reset.\n", 13, 0);
+        sendBoardToClients(-1, pfds);
+    } else if (strcmp(token, "/help") == 0) {
+        send(client_fd, "Available commands:\n/draw <x> <y> <symbol>\n/show\n/reset\n/help\n", 64, 0);
+    } else {
+        send(client_fd, "Unknown command. Type /help for a list of available commands.\n", 64, 0);
+    }
+}
+
+
+
+
+
+
+int main(int argc, char *argv []){
+#ifdef _WIN32
+    WSADATA data;
+#endif
+    unsigned int port;
+    int l_socket; // socket'as skirtas prisijungimų laukimui
+    int c_socket; // prisijungusio kliento socket'as
+
+    struct sockaddr_in servaddr; // Serverio adreso struktūra
+    struct sockaddr_in clientaddr; // Prisijungusio kliento adreso struktūra
+    socklen_t clientaddrlen = sizeof(struct sockaddr);
+
+    int s_len;
+    int r_len;
+    char buffer[1024];
+    
+    if (argc != 2){
+        printf("USAGE: %s <port>\n", argv[0]);
+        exit(1);
+    }
+
+    port = atoi(argv[1]);
+
+    if ((port < 1) || (port > 65535)){
+        printf("ERROR #1: invalid port specified.\n");
+        exit(1);
+    }
+
+    struct pollfd pfds[MAX_CONNECTED_CLIENTS + 1];
+    char usernames[MAX_CONNECTED_CLIENTS + 1][MAX_USERNAME_LENGTH];
+    memset(usernames, 0, sizeof(usernames));
+    nfds_t nfds = MAX_CONNECTED_CLIENTS;
+
+#ifdef _WIN32
+    WSAStartup(MAKEWORD(2,2),&data);    
+#endif
+
+    /*
+      * Sukuriamas serverio socket'as
+      */
+    if ((l_socket = socket(AF_INET, SOCK_STREAM,0))< 0){
+        fprintf(stderr,"ERROR #2: cannot create listening socket.\n");
+        exit(1);
+    }
+    
+    /*
+      * Išvaloma ir užpildoma serverio adreso struktūra
+      */
+    memset(&servaddr,0, sizeof(servaddr));
+     servaddr.sin_family = AF_INET; // nurodomas protokolas (IP)
+
+    /*
+      * Nurodomas IP adresas, kuriuo bus laukiama klientų, šiuo atveju visi 
+      * esami sistemos IP adresai (visi interfeis'ai)
+      */
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
+     servaddr.sin_port = htons(port); // nurodomas portas
+    
+    /*
+      * Serverio adresas susiejamas su socket'u
+      */
+     if (bind (l_socket, (struct sockaddr *)&servaddr,sizeof(servaddr))<0){
+        fprintf(stderr,"ERROR #3: bind listening socket.\n");
+        exit(1);
+    }
+
+    /*
+      * Nurodoma, kad socket'u l_socket bus laukiama klientų prisijungimo,
+      * eilėje ne daugiau kaip 5 aptarnavimo laukiantys klientai
+      */
+    if (listen(l_socket, 5) <0){
+        fprintf(stderr,"ERROR #4: error in listen().\n");
+        exit(1);
+    }
+
+    pfds[0].fd = l_socket;
+    pfds[0].events = POLLIN;
+
+    for (int i = 1; i <= MAX_CONNECTED_CLIENTS; i++)
+    {
+        pfds[i].fd = -1;
+    }
+
+    for(;;){
+            printf("Polling...\n");
+            int activity = poll(pfds, nfds, -1);
+            if (activity < 0)
+            {
+                fprintf(stderr, "poll error");
+                exit(1);
+            }
+    
+            if (pfds[0].revents & POLLIN)
+            {
+                printf("Trying to connect client.\n");
+                if ((c_socket = accept(l_socket, (struct sockaddr *)&clientaddr,
+                                        &clientaddrlen)) < 0)
+                {
+                    fprintf(stderr,
+                            "ERROR #5: error occured accepting connection.\n");
+                    exit(1);
+                }
+    
+                for (int i = 1; i <= MAX_CONNECTED_CLIENTS; i++)
+                {
+                    if (pfds[i].fd == -1)
+                    {
+                        pfds[i].fd = c_socket;
+                        pfds[i].events = POLLIN;
+                        printf("Client %d fd: %d.\n", i, pfds[i].fd);
+                        break;
+                    }
+                }
+                printf("Client connected.\n");
+            }
+    
+            for (int i = 1; i <= MAX_CONNECTED_CLIENTS; i++)
+            {
+                if (pfds[i].fd == -1)
+                    continue;
+    
+                if (pfds[i].revents & POLLIN)
+                {
+                    if (usernames[i][0] == '\0')
+                    {
+                        s_len =
+                            recv(pfds[i].fd, usernames[i], sizeof(usernames[i]), 0);
+                        if (s_len <= 0)
+                        {
+                            printf("Client %s disconnected.\n", usernames[i]);
+                            close(pfds[i].fd);
+                            usernames[i][0] = '\0';
+                            pfds[i].fd = -1;
+                        }
+                        else
+                        {
+                            usernames[i][s_len] = '\0';
+                            for (int j = 0; j < s_len; j++)
+                            {
+                                if (usernames[i][j] == '\n')
+                                {
+                                    usernames[i][j] = '\0';
+                                }
+                            }
+                            printf("Client %d is now called %s.\n", i,
+                                    usernames[i]);
+                            char str[MAX_USERNAME_LENGTH + 20];
+                            sprintf(str, "%s connected.", usernames[i]);
+                            for (int j = 1; j <= MAX_CONNECTED_CLIENTS; j++)
+                            {
+                                if (pfds[j].fd != -1 && i != j)
+                                {
+                                    send(pfds[j].fd, str, strlen(str), 0);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                    printf("Trying to read from client %d (%d).\n", i, pfds[i].fd);
+                    size_t uname_length = strlen(usernames[i]);
+                    strcpy(buffer, usernames[i]);
+                    strcpy(buffer + uname_length, ": ");
+                    s_len = recv(pfds[i].fd, buffer + (uname_length + 2),
+                    sizeof(buffer) - (uname_length + 2), 0);
+                    buffer[s_len + (uname_length + 2)] = '\0';
+
+                    if (s_len <= 0)
+                    {
+                        char str[MAX_USERNAME_LENGTH + 20];
+                        char *client_name =
+                            usernames[i][0] == '\0' ? "Anon" : usernames[i];
+                        sprintf(str, "%s disconnected.", client_name);
+                        for (int j = 1; j <= MAX_CONNECTED_CLIENTS; j++)
+                        {
+                            if (pfds[j].fd != -1 && i != j)
+                            {
+                                r_len = send(pfds[j].fd, str, strlen(str), 0);
+                            }
+                        }
+                        printf("Client disconnected.\n");
+                        close(pfds[i].fd);
+                        usernames[i][0] = '\0';
+                        pfds[i].fd = -1;
+                    }
+                    else
+                    {
+                        printf("Received from client %d: \"%s\".\n", i, buffer);
+                        if (buffer[uname_length + 2] == '/')
+                        {
+                            printf("Command detected: \"%s\"\n", buffer + uname_length + 2);
+                            commandParse(buffer + uname_length + 2, pfds[i].fd, pfds);
+                            sendBoardToClients(pfds[i].fd, pfds);
+                        }
+                        else
+                        {
+                            printf("Broadcasting message to all clients.\n");
+                            for (int j = 1; j <= MAX_CONNECTED_CLIENTS; j++)
+                            {
+                                if (pfds[j].fd != -1)
+                                {
+                                    r_len =
+                                        send(pfds[j].fd, buffer, strlen(buffer), 0);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
