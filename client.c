@@ -18,10 +18,11 @@
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+ #include <unistd.h>
  
  #define BUFFER_SIZE 1024
- #define CANVAS_WIDTH 80
- #define CANVAS_HEIGHT 24
+ #define CANVAS_WIDTH 20
+ #define CANVAS_HEIGHT 20
  
  // Structure to represent the local drawing canvas
  typedef struct {
@@ -85,16 +86,6 @@
  
  // Parse a DRAW command from the server
  // Format: "DRAW x y color client_id"
- int parse_draw_command(char *buffer, int *x, int *y, int *color, int *id) {
-     char command[10];
-     int result = sscanf(buffer, "%s %d %d %d %d", command, x, y, color, id);
-     
-     if (result != 5 || strcmp(command, "DRAW") != 0) {
-         return 0;
-     }
-     
-     return 1;
- }
  
  // Parse a WELCOME command from the server
  // Format: "WELCOME client_id"
@@ -135,14 +126,29 @@
  }
  
  // Send a drawing command to the server
- void send_draw_command(int x, int y, int color) {
-     char buffer[BUFFER_SIZE];
-     snprintf(buffer, BUFFER_SIZE, "DRAW %d %d %d", x, y, color);
-     send(s_socket, buffer, strlen(buffer), 0);
-     
-     // Also update our local canvas
-     update_canvas(x, y, color, canvas.client_id);
- }
+ // Send a drawing command to the server
+void send_draw_command(int x, int y, int color) {
+    char buffer[BUFFER_SIZE];
+    char symbol;
+
+    // Determine symbol based on color (same logic as update_canvas)
+    switch (color % 10) {
+        case 0: symbol = ' '; break; // Eraser
+        case 1: symbol = '*'; break;
+        case 2: symbol = '+'; break;
+        case 3: symbol = 'o'; break;
+        case 4: symbol = '#'; break;
+        case 5: symbol = '@'; break;
+        case 6: symbol = '='; break;
+        case 7: symbol = '.'; break;
+        case 8: symbol = ':'; break;
+        case 9: symbol = '$'; break;
+        default: symbol = '*';
+    }
+
+    snprintf(buffer, BUFFER_SIZE, "/draw %d %d %c", x, y, symbol);
+    send(s_socket, buffer, strlen(buffer), 0);
+}
  
  // Set up non-blocking input
  void setup_nonblocking_input() {
@@ -269,18 +275,40 @@ while (1) {
     if (FD_ISSET(s_socket, &readfds)) {
         bytes_received = recv(s_socket, buffer, BUFFER_SIZE - 1, 0);
         
+        // ... inside the while(1) loop, in the FD_ISSET(s_socket, &readfds) block ...
+
         if (bytes_received > 0) {
             buffer[bytes_received] = '\0';
-            
-            // Parse and process server messages
-            int x, y, color, client_id;
-            if (parse_draw_command(buffer, &x, &y, &color, &client_id)) {
-                update_canvas(x, y, color, client_id);
+            printf("Received from server: %s", buffer); // For debugging
+
+            // Check if the message is "Board reset."
+            if (strcmp(buffer, "Board reset.\n") == 0) {
+                init_canvas();
                 display_canvas();
             }
-        } else if (bytes_received == 0) {
-            printf("Server disconnected\n");
-            break;
+            // Otherwise, assume it's the board string
+            else {
+                int index = 0;
+                for (int y = 0; y < CANVAS_HEIGHT; y++) { // Make sure CANVAS_HEIGHT is 20
+                    for (int x = 0; x < CANVAS_WIDTH; x++) { // Make sure CANVAS_WIDTH is 20
+                        if (index < bytes_received) {
+                            if (buffer[index] != '\n') {
+                                canvas.grid[y][x] = buffer[index];
+                            } else {
+                                x--; // Don't increment x for newline
+                            }
+                            index++;
+                        } else {
+                            break; // Handle potential truncation
+                        }
+                    }
+                    if (index < bytes_received && buffer[index] == '\n') {
+                        index++; // Skip newline
+                    }
+                    if (index >= bytes_received) break;
+                }
+                display_canvas();
+            }
         }
     }
     

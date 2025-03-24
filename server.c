@@ -48,20 +48,6 @@ int draw(int x, int y, char symbol)
     return 0;
 }
 
-
-void sendBoardToClients(int current_client_fd, struct pollfd *pfds) {
-    char* board_string = showBoard();
-    if (board_string != NULL) {
-        for (int i = 1; i <= MAX_CONNECTED_CLIENTS; i++) {
-            if (pfds[i].fd != -1 && pfds[i].fd != current_client_fd) {
-                send(pfds[i].fd, board_string, strlen(board_string), 0);
-            }
-        }
-        free(board_string); // Free the allocated memory
-    }
-}
-
-
 char* showBoard() {
     int width = 20; // Let's start with a smaller board
     int height = 20;
@@ -80,6 +66,22 @@ char* showBoard() {
     strboard[index] = '\0'; // Null-terminate the string
     return strboard;
 }
+
+
+void sendBoardToClients(int current_client_fd, struct pollfd *pfds) {
+    char* board_string = showBoard();
+    if (board_string != NULL) {
+        for (int i = 1; i <= MAX_CONNECTED_CLIENTS; i++) {
+            if (pfds[i].fd != -1 && pfds[i].fd != current_client_fd) {
+                send(pfds[i].fd, board_string, strlen(board_string), 0);
+            }
+        }
+        free(board_string); // Free the allocated memory
+    }
+}
+
+
+
 
 void resetBoard () {
     memset(board, 0, sizeof(board));
@@ -128,7 +130,7 @@ void commandParse (char *command, int client_fd, struct pollfd *pfds) {
         send(client_fd, "Board reset.\n", 13, 0);
         sendBoardToClients(-1, pfds);
     } else if (strcmp(token, "/help") == 0) {
-        send(client_fd, "Available commands:\n/draw <x> <y> <symbol>\n/show\n/reset\n/help\n", 64, 0);
+        send(client_fd, "Available commands:\n/draw <x> <y> <symbol>\n/show\n/reset\n/help\n/exit\n", 64, 0);
     } else {
         send(client_fd, "Unknown command. Type /help for a list of available commands.\n", 64, 0);
     }
@@ -264,6 +266,7 @@ int main(int argc, char *argv []){
                 {
                     if (usernames[i][0] == '\0')
                     {
+                        send(pfds[i].fd, "Enter your username: ", 21, 0);
                         s_len =
                             recv(pfds[i].fd, usernames[i], sizeof(usernames[i]), 0);
                         if (s_len <= 0)
@@ -285,8 +288,10 @@ int main(int argc, char *argv []){
                             }
                             printf("Client %d is now called %s.\n", i,
                                     usernames[i]);
+                            
                             char str[MAX_USERNAME_LENGTH + 20];
                             sprintf(str, "%s connected.", usernames[i]);
+                            send(pfds[i].fd, "Welcome to the server!\n", 23, 0);
                             for (int j = 1; j <= MAX_CONNECTED_CLIENTS; j++)
                             {
                                 if (pfds[j].fd != -1 && i != j)
@@ -331,7 +336,7 @@ int main(int argc, char *argv []){
                         {
                             printf("Command detected: \"%s\"\n", buffer + uname_length + 2);
                             commandParse(buffer + uname_length + 2, pfds[i].fd, pfds);
-                            sendBoardToClients(pfds[i].fd, pfds);
+                            // sendBoardToClients(pfds[i].fd, pfds);
                         }
                         else
                         {
