@@ -40,6 +40,7 @@ char board[BOARD_HEIGHT][BOARD_WIDTH];
 
 int draw(int x, int y, char symbol)
 {
+    y = BOARD_HEIGHT - 1 - y; // Invert the y-axis
     if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
     {
         return -1;
@@ -55,7 +56,7 @@ char* showBoard() {
         return NULL;
     }
     int index = 0;
-    for (int i = 0; i < BOARD_HEIGHT; i++) {
+    for (int i = BOARD_HEIGHT - 1; i >= 0; i--) { // Adjust to display the board correctly
         for (int j = 0; j < BOARD_WIDTH; j++) {
             strboard[index++] = board[i][j] == 0 ? ' ' : board[i][j]; // Use space for empty cells
         }
@@ -87,35 +88,31 @@ void resetBoard () {
 
 void commandParse (char *command, int client_fd, struct pollfd *pfds) {
     char *token = strtok(command, " ");
+    if (token == NULL) {
+        send(client_fd, "Unknown command. Type /help for a list of available commands.\n", 64, 0);
+        return;
+    }
+
     if (strcmp(token, "/draw") == 0) {
+        int x, y;
+        char symbol;
         token = strtok(NULL, " ");
-        if (token != NULL) {
-            DrawPoint.x = atoi(token);
-            token = strtok(NULL, " ");
-            if (token != NULL) {
-                DrawPoint.y = atoi(token);
-                token = strtok(NULL, " ");
-                if (token != NULL) {
-                    if (strlen(token) == 1) {
-                        DrawPoint.symbol = token[0];
-                        int check = draw(DrawPoint.x, DrawPoint.y, DrawPoint.symbol);
-                        if (check == -1) {
-                            send(client_fd, "Invalid coordinates.\n", 21, 0);
-                        } else {
-                            sendBoardToClients(-1, pfds);
-                            send(client_fd, "Draw successful.\n", 18, 0);
-                        }
-                    } else {
-                        send(client_fd, "Invalid symbol. Please use a single character.\n", 46, 0);
-                    }
-                } else {
-                    send(client_fd, "Usage: /draw <x> <y> <symbol>\n", 33, 0);
-                }
-            } else {
-                send(client_fd, "Usage: /draw <x> <y> <symbol>\n", 33, 0);
-            }
-        } else {
+        if (token != NULL) x = atoi(token);
+        token = strtok(NULL, " ");
+        if (token != NULL) y = atoi(token);
+        token = strtok(NULL, " ");
+        if (token != NULL && strlen(token) == 1) symbol = token[0];
+
+        if (token == NULL || strlen(token) != 1) {
             send(client_fd, "Usage: /draw <x> <y> <symbol>\n", 33, 0);
+        } else {
+            int check = draw(x, y, symbol);
+            if (check == -1) {
+                send(client_fd, "Invalid coordinates.\n", 21, 0);
+            } else {
+                sendBoardToClients(-1, pfds);
+                send(client_fd, "Draw successful.\n", 18, 0);
+            }
         }
     } else if (strcmp(token, "/show") == 0) {
         char* board_string = showBoard();
