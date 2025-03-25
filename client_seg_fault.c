@@ -1,9 +1,6 @@
-/*
- * Drawing Board Client (No Threading)
- *
- * Author: Original by Kęstutis Mizara, Modified for Drawing Board
- * Description: Connects to drawing board server and exchanges drawing commands
- */
+
+
+// fix the client.c file so that the board is 80 in x and 20 in y and the commands first take x, not y
 
  #ifdef _WIN32
  #include <winsock2.h>
@@ -87,7 +84,6 @@
                  return; // Prevent out-of-bounds access
              }
          }
-         // Skip the newline character if it exists
          if (index < strlen(board_string) && board_string[index] == '\n') {
              index++;
          }

@@ -1,9 +1,7 @@
-/*
- * Echo serveris
- * 
- * Author: Kęstutis Mizara
- * Description: Gauna kliento pranešimą ir išsiunčia atgal
- */
+
+
+
+// fix the server.c file so that the board is 80 in x and 20 in y and the commands first take x, not y
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -29,6 +27,8 @@
 
 #define MAX_CONNECTED_CLIENTS 10
 #define MAX_USERNAME_LENGTH 15
+#define BOARD_WIDTH 80
+#define BOARD_HEIGHT 20
 
 struct {
     int x;
@@ -36,29 +36,27 @@ struct {
     char symbol;
 } DrawPoint;
 
-char board[20][20];
+char board[BOARD_HEIGHT][BOARD_WIDTH];
 
 int draw(int x, int y, char symbol)
 {
-    if (x < 0 || x >= 20 || y < 0 || y >= 20)
+    if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
     {
         return -1;
     }
-    board[x][y] = symbol;
+    board[y][x] = symbol;
     return 0;
 }
 
 char* showBoard() {
-    int width = 20; // Let's start with a smaller board
-    int height = 20;
-    char *strboard = (char*)malloc((width * (height + 1) + 1) * sizeof(char)); // Allocate memory
+    char *strboard = (char*)malloc((BOARD_WIDTH * (BOARD_HEIGHT + 1) + 1) * sizeof(char)); // Allocate memory
     if (strboard == NULL) {
         perror("Failed to allocate memory for board string");
         return NULL;
     }
     int index = 0;
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width; j++) {
+    for (int i = 0; i < BOARD_HEIGHT; i++) {
+        for (int j = 0; j < BOARD_WIDTH; j++) {
             strboard[index++] = board[i][j] == 0 ? ' ' : board[i][j]; // Use space for empty cells
         }
         strboard[index++] = '\n';
