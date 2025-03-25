@@ -44,10 +44,8 @@
          }
      }
      canvas.client_id = -1;
-     canvas.curr_color = 1; // Default color
  }
  
- // Display the canvas (without frame)
  void client_info_display() {
  #ifdef _WIN32
      system("cls");
@@ -55,7 +53,6 @@
      system("clear");
  #endif
  
-     // Print grid
      printf("Commands: /draw x y symbol (e.g., '/draw 5 10 #' to draw)\n");
      printf("         /show (show board)\n");
      printf("         /reset (reset board)\n");
@@ -106,8 +103,6 @@
  // Set up non-blocking input
  void setup_nonblocking_input() {
  #ifdef _WIN32
-     // Windows doesn't support setting stdin to non-blocking in a standard way
-     // We'll use select() with a timeout instead
  #else
      int flags = fcntl(0, F_GETFL, 0);
      fcntl(0, F_SETFL, flags | O_NONBLOCK);
@@ -197,7 +192,7 @@
      // Send the username to the server
      send(s_socket, username, strlen(username), 0);
  
-     // Set up non-blocking input
+     // Set up non block
      setup_nonblocking_input();
  
      char buffer[BUFFER_SIZE];
@@ -205,19 +200,11 @@
      char *input_ptr = input_buffer;
      input_buffer[0] = '\0';
      int bytes_received;
- 
-     // Wait for welcome message (optional, but good to have)
+
      bytes_received = recv(s_socket, buffer, BUFFER_SIZE - 1, 0);
      if (bytes_received > 0) {
          buffer[bytes_received] = '\0';
-         printf("%s\n", buffer); // Print the welcome message
-         int client_id;
-         // You might need to adjust this part if your server sends a client ID
-         // based on the current server code, it doesn't send a client ID
-         // if (parse_welcome_command(buffer, &client_id)) {
-         //     canvas.client_id = client_id;
-         //     printf("Assigned client ID: %d\n", client_id);
-         // }
+         printf("%s\n", buffer);
      }
  
      client_info_display();

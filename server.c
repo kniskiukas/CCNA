@@ -130,7 +130,7 @@ void commandParse (char *command, int client_fd, struct pollfd *pfds) {
         send(client_fd, "Board reset.\n", 13, 0);
         sendBoardToClients(-1, pfds);
     } else if (strcmp(token, "/help") == 0) {
-        send(client_fd, "Available commands:\n/draw <x> <y> <symbol>\n/show\n/reset\n/help\n/exit\n", 64, 0);
+        send(client_fd, "\nAvailable commands:\n/draw <x> <y> <symbol>\n/show\n/reset\n/help\n/exit\n", 71, 0);
     } else {
         send(client_fd, "Unknown command. Type /help for a list of available commands.\n", 64, 0);
     }
