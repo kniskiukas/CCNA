@@ -16,8 +16,8 @@
 #include <unistd.h>
 
 #define BUFFER_SIZE 1024
-#define CANVAS_WIDTH 80
-#define CANVAS_HEIGHT 20
+#define CANVAS_WIDTH 21
+#define CANVAS_HEIGHT 21
 #define MAX_USERNAME_LENGTH 15
 
 // Structure to represent the local drawing canvas
@@ -49,16 +49,6 @@ void client_info_display()
 #else
     system("clear");
 #endif
-
-    // Display the canvas
-    for (int y = 0; y < CANVAS_HEIGHT; y++)
-    {
-        for (int x = 0; x < CANVAS_WIDTH; x++)
-        {
-            putchar(canvas.grid[y][x]);
-        }
-        putchar('\n');
-    }
 
     printf("\nCommands: /draw x y symbol (e.g., '/draw 5 10 #' to draw)\n");
     printf("         /show (show board)\n");
@@ -260,7 +250,7 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    printf("\nServer says: %s\n", buffer); // Print other messages from the server
+                    printf("\nServer says:\n %s\n", buffer); // Print other messages from the server
                     printf("Enter command: ");
                     fflush(stdout);
                 }

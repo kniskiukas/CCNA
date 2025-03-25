@@ -27,8 +27,8 @@
 
 #define MAX_CONNECTED_CLIENTS 10
 #define MAX_USERNAME_LENGTH 15
-#define BOARD_WIDTH 80
-#define BOARD_HEIGHT 20
+#define BOARD_WIDTH 21
+#define BOARD_HEIGHT 21
 
 struct {
     int x;
@@ -40,7 +40,7 @@ char board[BOARD_HEIGHT][BOARD_WIDTH];
 
 int draw(int x, int y, char symbol)
 {
-    y = BOARD_HEIGHT - y; // Invert the y-axis
+    //y = BOARD_HEIGHT - y - 1; // Invert the y-axis
     if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
     {
         return -1;
