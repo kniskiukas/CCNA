@@ -40,7 +40,7 @@ char board[BOARD_HEIGHT][BOARD_WIDTH];
 
 int draw(int x, int y, char symbol)
 {
-    y = BOARD_HEIGHT - 1 - y; // Invert the y-axis
+    y = BOARD_HEIGHT - y; // Invert the y-axis
     if (x < 0 || x >= BOARD_WIDTH || y < 0 || y >= BOARD_HEIGHT)
     {
         return -1;

@@ -50,7 +50,17 @@ void client_info_display()
     system("clear");
 #endif
 
-    printf("Commands: /draw x y symbol (e.g., '/draw 5 10 #' to draw)\n");
+    // Display the canvas
+    for (int y = 0; y < CANVAS_HEIGHT; y++)
+    {
+        for (int x = 0; x < CANVAS_WIDTH; x++)
+        {
+            putchar(canvas.grid[y][x]);
+        }
+        putchar('\n');
+    }
+
+    printf("\nCommands: /draw x y symbol (e.g., '/draw 5 10 #' to draw)\n");
     printf("         /show (show board)\n");
     printf("         /reset (reset board)\n");
     printf("         /help (show commands)\n");
@@ -251,9 +261,9 @@ int main(int argc, char *argv[])
                 else
                 {
                     printf("\nServer says: %s\n", buffer); // Print other messages from the server
+                    printf("Enter command: ");
+                    fflush(stdout);
                 }
-                printf("Enter command: ");
-                fflush(stdout);
             }
             else if (bytes_received == 0)
             {
@@ -306,10 +316,6 @@ int main(int argc, char *argv[])
                     // Reset input buffer
                     input_ptr = input_buffer;
                     *input_ptr = '\0';
-                    //  if (strcmp(input_buffer, "/show") != 0) {
-                    //      printf("Enter command: "); // Print prompt again if not /show
-                    //      fflush(stdout);
-                    //  }
                 }
                 else if (ch == 127 || ch == 8)
                 { // Backspace
