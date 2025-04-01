@@ -27,7 +27,7 @@
 
 #define MAX_CONNECTED_CLIENTS 10
 #define MAX_USERNAME_LENGTH 15
-#define BOARD_WIDTH 21
+#define BOARD_WIDTH 81
 #define BOARD_HEIGHT 21
 
 struct {
@@ -150,7 +150,7 @@ int main(int argc, char *argv []){
 
     int s_len;
     int r_len;
-    char buffer[1024];
+    char buffer[4096];
     
     if (argc != 2){
         printf("USAGE: %s <port>\n", argv[0]);

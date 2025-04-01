@@ -21,8 +21,8 @@
  #include <unistd.h>
  
  #define BUFFER_SIZE 1024
- #define CANVAS_WIDTH 20
- #define CANVAS_HEIGHT 20
+ #define CANVAS_WIDTH 51
+ #define CANVAS_HEIGHT 21
  
  // Structure to represent the local drawing canvas
  typedef struct {

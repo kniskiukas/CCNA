@@ -15,8 +15,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define BUFFER_SIZE 1024
-#define CANVAS_WIDTH 21
+#define BUFFER_SIZE 4096
+#define CANVAS_WIDTH 81
 #define CANVAS_HEIGHT 21
 #define MAX_USERNAME_LENGTH 15
 
