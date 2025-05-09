@@ -5,6 +5,9 @@ import java.util.Scanner;
 import java.util.List;
 import java.net.URL;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -105,7 +108,10 @@ public class HTTPClient
             }
             // Remove the last newline if the body is not empty
             String body = responseBody.length() > 0 ? responseBody.toString().trim() : "";
-
+            File file = new File("response.txt");
+            FileOutputStream fileWriter = new FileOutputStream(file);
+            fileWriter.write(body.getBytes(), 0, body.getBytes().length);
+            fileWriter.close();
             return new HTTPClient(statusCode, statusMessage, body, responseHeaders);
         }
     }
