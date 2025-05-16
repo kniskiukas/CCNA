@@ -8,6 +8,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -65,6 +68,9 @@ public class HTTPClient
         String host = url.getHost();
         int port = url.getPort() == -1 ? 80 : url.getPort();
         String path = url.getPath().isEmpty() ? "/" : url.getPath();
+        if (url.getQuery() != null) {
+            path += "?" + url.getQuery();
+        }
 
         try (Socket socket = new Socket(host, port);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -112,7 +118,8 @@ public class HTTPClient
             FileOutputStream fileWriter = new FileOutputStream(file);
             fileWriter.write(body.getBytes(), 0, body.getBytes().length);
             fileWriter.close();
-            return new HTTPClient(statusCode, statusMessage, body, responseHeaders);
+            // return new HTTPClient(statusCode, statusMessage, body, responseHeaders);
+            return readResponse(in);
         }
     }
 
@@ -122,6 +129,9 @@ public class HTTPClient
         String host = url.getHost();
         int port = url.getPort() == -1 ? 80 : url.getPort();
         String path = url.getPath().isEmpty() ? "/" : url.getPath();
+        if (url.getQuery() != null) {
+            path += "?" + url.getQuery();
+        }
 
         try (Socket socket = new Socket(host, port);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -134,42 +144,10 @@ public class HTTPClient
             out.println("Content-Length: " + postData.length());
             out.println("Connection: close");
             out.println(); // End of headers
-            out.println(postData); // Send the body
+            out.print(postData); // Send the body without adding a newline
+            out.flush(); // Make sure to flush the stream
 
-            // Read the response
-            String statusLine = in.readLine();
-            if (statusLine == null)
-            {
-                throw new IOException("Received an empty response from the server.");
-            }
-
-            String[] statusParts = statusLine.split(" ", 3);
-            int statusCode = Integer.parseInt(statusParts[1]);
-            String statusMessage = statusParts.length > 2 ? statusParts[2] : "";
-
-            java.util.Map<String, java.util.List<String>> responseHeaders = new java.util.HashMap<>();
-            String headerLine;
-            while ((headerLine = in.readLine()) != null && !headerLine.isEmpty())
-            {
-                String[] headerParts = headerLine.split(":", 2);
-                if (headerParts.length == 2)
-                {
-                    String headerName = headerParts[0].trim().toLowerCase();
-                    String headerValue = headerParts[1].trim();
-                    responseHeaders.computeIfAbsent(headerName, k -> new java.util.ArrayList<>()).add(headerValue);
-                }
-            }
-
-            StringBuilder responseBody = new StringBuilder();
-            String bodyLine;
-            while ((bodyLine = in.readLine()) != null)
-            {
-                responseBody.append(bodyLine).append("\n");
-            }
-            // Remove the last newline if the body is not empty
-            String body = responseBody.length() > 0 ? responseBody.toString().trim() : "";
-
-            return new HTTPClient(statusCode, statusMessage, body, responseHeaders);
+            return readResponse(in);
         }
     }
 
@@ -179,6 +157,9 @@ public class HTTPClient
         String host = url.getHost();
         int port = url.getPort() == -1 ? 80 : url.getPort();
         String path = url.getPath().isEmpty() ? "/" : url.getPath();
+        if (url.getQuery() != null) {
+            path += "?" + url.getQuery();
+        }
 
         try (Socket socket = new Socket(host, port);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -191,42 +172,10 @@ public class HTTPClient
             out.println("Content-Length: " + putData.length());
             out.println("Connection: close");
             out.println(); // End of headers
-            out.println(putData); // Send the body
+            out.print(putData); // Send the body without adding a newline
+            out.flush(); // Make sure to flush the stream
 
-            // Read the response
-            String statusLine = in.readLine();
-            if (statusLine == null)
-            {
-                throw new IOException("Received an empty response from the server.");
-            }
-
-            String[] statusParts = statusLine.split(" ", 3);
-            int statusCode = Integer.parseInt(statusParts[1]);
-            String statusMessage = statusParts.length > 2 ? statusParts[2] : "";
-
-            java.util.Map<String, java.util.List<String>> responseHeaders = new java.util.HashMap<>();
-            String headerLine;
-            while ((headerLine = in.readLine()) != null && !headerLine.isEmpty())
-            {
-                String[] headerParts = headerLine.split(":", 2);
-                if (headerParts.length == 2)
-                {
-                    String headerName = headerParts[0].trim().toLowerCase();
-                    String headerValue = headerParts[1].trim();
-                    responseHeaders.computeIfAbsent(headerName, k -> new java.util.ArrayList<>()).add(headerValue);
-                }
-            }
-
-            StringBuilder responseBody = new StringBuilder();
-            String bodyLine;
-            while ((bodyLine = in.readLine()) != null)
-            {
-                responseBody.append(bodyLine).append("\n");
-            }
-            // Remove the last newline if the body is not empty
-            String body = responseBody.length() > 0 ? responseBody.toString().trim() : "";
-
-            return new HTTPClient(statusCode, statusMessage, body, responseHeaders);
+            return readResponse(in);
         }
     }
 
@@ -236,6 +185,9 @@ public class HTTPClient
         String host = url.getHost();
         int port = url.getPort() == -1 ? 80 : url.getPort();
         String path = url.getPath().isEmpty() ? "/" : url.getPath();
+        if (url.getQuery() != null) {
+            path += "?" + url.getQuery();
+        }
 
         try (Socket socket = new Socket(host, port);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -247,41 +199,45 @@ public class HTTPClient
             out.println("Connection: close");
             out.println(); // End of headers
 
-            // Read the response
-            String statusLine = in.readLine();
-            if (statusLine == null)
-            {
-                throw new IOException("Received an empty response from the server.");
-            }
-
-            String[] statusParts = statusLine.split(" ", 3);
-            int statusCode = Integer.parseInt(statusParts[1]);
-            String statusMessage = statusParts.length > 2 ? statusParts[2] : "";
-
-            java.util.Map<String, java.util.List<String>> responseHeaders = new java.util.HashMap<>();
-            String headerLine;
-            while ((headerLine = in.readLine()) != null && !headerLine.isEmpty())
-            {
-                String[] headerParts = headerLine.split(":", 2);
-                if (headerParts.length == 2)
-                {
-                    String headerName = headerParts[0].trim().toLowerCase();
-                    String headerValue = headerParts[1].trim();
-                    responseHeaders.computeIfAbsent(headerName, k -> new java.util.ArrayList<>()).add(headerValue);
-                }
-            }
-
-            StringBuilder responseBody = new StringBuilder();
-            String bodyLine;
-            while ((bodyLine = in.readLine()) != null)
-            {
-                responseBody.append(bodyLine).append("\n");
-            }
-            // Remove the last newline if the body is not empty
-            String body = responseBody.length() > 0 ? responseBody.toString().trim() : "";
-
-            return new HTTPClient(statusCode, statusMessage, body, responseHeaders);
+            return readResponse(in);
         }
+    }
+    
+    private HTTPClient readResponse(BufferedReader in) throws IOException {
+        // Read the response
+        String statusLine = in.readLine();
+        if (statusLine == null)
+        {
+            throw new IOException("Received an empty response from the server.");
+        }
+
+        String[] statusParts = statusLine.split(" ", 3);
+        int statusCode = Integer.parseInt(statusParts[1]);
+        String statusMessage = statusParts.length > 2 ? statusParts[2] : "";
+
+        java.util.Map<String, java.util.List<String>> responseHeaders = new java.util.HashMap<>();
+        String headerLine;
+        while ((headerLine = in.readLine()) != null && !headerLine.isEmpty())
+        {
+            String[] headerParts = headerLine.split(":", 2);
+            if (headerParts.length == 2)
+            {
+                String headerName = headerParts[0].trim().toLowerCase();
+                String headerValue = headerParts[1].trim();
+                responseHeaders.computeIfAbsent(headerName, k -> new java.util.ArrayList<>()).add(headerValue);
+            }
+        }
+
+        StringBuilder responseBody = new StringBuilder();
+        String bodyLine;
+        while ((bodyLine = in.readLine()) != null)
+        {
+            responseBody.append(bodyLine).append("\n");
+        }
+        // Remove the last newline if the body is not empty
+        String body = responseBody.length() > 0 ? responseBody.toString() : "";
+
+        return new HTTPClient(statusCode, statusMessage, body, responseHeaders);
     }
     
     @Override
@@ -302,6 +258,20 @@ public class HTTPClient
         sb.append("\r\n").append(body);
         return sb.toString();
     }
+    
+    // Method to save response body to a file
+    private static void saveResponseToFile(String content, String fileName) {
+        try {
+            File file = new File(fileName);
+            BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+            writer.write(content);
+            writer.close();
+            System.out.println("File saved successfully at: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            System.err.println("Error saving file: " + e.getMessage());
+        }
+    }
+    
     public static void main(String[] args)
     {
         Scanner scanner = new Scanner(System.in);
@@ -333,17 +303,29 @@ public class HTTPClient
                         response = client.sendGetRequest(urlInput);
                         System.out.println("\nResponse for: " + urlInput);
                         System.out.println(response.toString());
+                        
+                        // Save HTML to file
+                        String fileName1 = "response_" + System.currentTimeMillis() + ".html";
+                        saveResponseToFile(response.getBody(), fileName1);
+                        System.out.println("HTML response saved to file: " + fileName1);
                         break;
                     case "2":
                         System.out.println("\nRunning GET example.com test:");
                         response = client.sendGetRequest("http://example.com");
                         System.out.println(response.toString());
-                        if (response.getStatusCode() == 200) System.out.println("Test passed!");
+                        if (response.getStatusCode() == 200) {
+                            System.out.println("Test passed!");
+                            
+                            // Save HTML to file
+                            String fileName2 = "example_com_" + System.currentTimeMillis() + ".html";
+                            saveResponseToFile(response.getBody(), fileName2);
+                            System.out.println("HTML response saved to file: " + fileName2);
+                        }
                         else System.out.println("Test failed. Status code: " + response.getStatusCode());
                         break;
                     case "3":
                         System.out.println("\nRunning GET 404 status test:");
-                        response = client.sendGetRequest("https://httpbin.org/status/404");
+                        response = client.sendGetRequest("http://httpbin.org/status/404");
                         System.out.println(response.toString());
                         if (response.getStatusCode() == 404) System.out.println("Test passed!");
                         else System.out.println("Test failed. Status code: " + response.getStatusCode());
@@ -351,22 +333,30 @@ public class HTTPClient
                     case "4":
                         System.out.println("\nRunning POST request test:");
                         String postData = "name=Augustas&age=21";
-                        response = client.sendPostRequest("https://httpbin.org/post", postData);
+                        response = client.sendPostRequest("http://httpbin.org/post", postData);
                         System.out.println(response.toString());
-                        if (response.getStatusCode() == 200 && response.getBody().contains(postData)) System.out.println("Test passed!");
-                        else System.out.println("Test failed. Status code: " + response.getStatusCode() + ", Body: " + response.getBody());
+                        // Check if the response body contains the form data
+                        if (response.getStatusCode() == 200 && response.getBody().contains("\"name\": \"Augustas\"") 
+                            && response.getBody().contains("\"age\": \"21\"")) 
+                            System.out.println("Test passed!");
+                        else 
+                            System.out.println("Test failed. Status code: " + response.getStatusCode());
                         break;
                     case "5":
                         System.out.println("\nRunning PUT request test:");
-                        String putData = "name=Augustas&age=22";
-                        response = client.sendPutRequest("https://httpbin.org/put", putData);
+                        String putData = "name=Augustas&age=21";
+                        response = client.sendPutRequest("http://httpbin.org/put", putData);
                         System.out.println(response.toString());
-                        if (response.getStatusCode() == 200 && response.getBody().contains(putData)) System.out.println("Test passed!");
-                        else System.out.println("Test failed. Status code: " + response.getStatusCode() + ", Body: " + response.getBody());
+                        // Check if the response body contains the form data
+                        if (response.getStatusCode() == 200 && response.getBody().contains("\"name\": \"Augustas\"") 
+                            && response.getBody().contains("\"age\": \"21\"")) 
+                            System.out.println("Test passed!");
+                        else 
+                            System.out.println("Test failed. Status code: " + response.getStatusCode());
                         break;
                     case "6":
                         System.out.println("\nRunning DELETE request test:");
-                        response = client.sendDeleteRequest("https://httpbin.org/delete");
+                        response = client.sendDeleteRequest("http://httpbin.org/delete");
                         System.out.println(response.toString());
                         if (response.getStatusCode() == 200) System.out.println("Test passed!");
                         else System.out.println("Test failed. Status code: " + response.getStatusCode());
